@@ -3,7 +3,7 @@
  * Plugin Name: Custom Notifications Manager Test
  * Description: Test version of Custom Notifications Manager
  * Version: 3.0.7
- * Author: ari0329
+ * Author: ari290
  */
 if (!defined('ABSPATH')) {
     exit;
@@ -517,149 +517,8 @@ function can_add_custom_css_admin_pages() {
 add_action('admin_menu', 'can_add_custom_css_admin_pages', 20);
 
 // Custom CSS page callback
-function can_custom_css_page_callback($module) {
-    if (!current_user_can('edit_posts')) {
-        wp_die(__('You do not have sufficient permissions to access this page.', 'custom-notifications-manager'));
-    }
 
-    $option_group = 'can_settings_' . $module['slug'];
-    $custom_css_option = $option_group . '_custom_css';
-    $custom_site_name_option = $option_group . '_custom_site_name';
-
-    // Handle form submission for both Custom CSS and Custom Site Name
-    if (isset($_POST['can_custom_css_submit']) && check_admin_referer('can_custom_css_nonce_' . $module['slug'])) {
-        // Save Custom CSS
-        $custom_css = isset($_POST['can_custom_css']) ? wp_strip_all_tags($_POST['can_custom_css']) : '';
-        update_option($custom_css_option, $custom_css);
-
-        // Save Custom Site Name
-        $custom_site_name = isset($_POST['can_custom_site_name']) ? sanitize_text_field($_POST['can_custom_site_name']) : '';
-        update_option($custom_site_name_option, $custom_site_name);
-
-        echo '<div class="notice notice-success is-dismissible"><p>' . __('Settings saved successfully!', 'custom-notifications-manager') . '</p></div>';
-    }
-
-    $custom_css = get_option($custom_css_option, '');
-    $custom_site_name = get_option($custom_site_name_option, '');
-    $site_name = !empty($custom_site_name) ? $custom_site_name : get_bloginfo('name');
-    $module_name = $module['name'];
-    ?>
-    <div class="wrap">
-        <h1><?php printf(__('%s Custom CSS', 'custom-notifications-manager'), esc_html($module['name'])); ?></h1>
-        
-        <!-- Add Custom Site Name Section with Editable Field -->
-        <form method="post" action="">
-            <?php wp_nonce_field('can_custom_css_nonce_' . $module['slug']); ?>
-            <div style="margin-bottom: 20px;">
-                <h3 style="text-transform: uppercase; font-size: 14px; margin-bottom: 5px;"><?php _e('Custom Site Name', 'custom-notifications-manager'); ?></h3>
-                <div style="border: 1px solid #ddd; padding: 10px; background: #f9f9f9; font-size: 16px; font-weight: bold;">
-                    <input type="text" name="can_custom_site_name" id="can_custom_site_name" value="<?php echo esc_attr($site_name); ?>" style="width: 70%; font-size: 16px; font-weight: bold; border: none; background: none;" />
-                    - <span style="color: red;"><?php echo esc_html($module_name); ?></span>
-                </div>
-                <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                    <?php printf(__('This name will be displayed when an author checks "Show Site Name" for an %s.', 'custom-notifications-manager'), esc_html($module_name)); ?>
-                </p>
-            </div>
-
-            <!-- Custom CSS Section -->
-            <table class="form-table">
-                <tr>
-                    <th scope="row">
-                        <label for="can_custom_css"><?php _e('Custom CSS', 'custom-notifications-manager'); ?></label>
-                    </th>
-                    <td>
-                        <textarea name="can_custom_css" id="can_custom_css" rows="10" class="large-text code"><?php echo esc_textarea($custom_css); ?></textarea>
-                        <p class="description"><?php printf(__('Add custom CSS to style the [display_%s_notifications] shortcode output.', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
-                        <p class="description"><?php printf(__('For list layout: .%s-notifications-list { background: #F5F5F5; padding: 15px; }', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
-                        <p class="description"><?php printf(__('For grid layout: .%s-notifications-grid { background: #F5F5F5; padding: 15px; }', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
-                    </td>
-                </tr>
-            </table>
-            <p class="submit">
-                <input type="submit" name="can_custom_css_submit" class="button button-primary" value="<?php _e('Save Settings', 'custom-notifications-manager'); ?>">
-            </p>
-        </form>
-    </div>
-    <?php
-}
-
-function can_modify_add_new_link($url, $path, $blog_id) {
-    if ($path === 'post-new.php?post_type=notifications' && is_admin() && isset($_GET['post_type']) && $_GET['post_type'] === 'notifications' && isset($_GET['module']) && !empty($_GET['module'])) {
-        $module = sanitize_title($_GET['module']);
-        $url = add_query_arg('module', $module, $url);
-    }
-    return $url;
-}
-add_filter('admin_url', 'can_modify_add_new_link', 10, 3);
-
-function can_modify_admin_bar_add_new_link($wp_admin_bar) {
-    if (!is_admin() || !isset($_GET['post_type']) || $_GET['post_type'] !== 'notifications' || !isset($_GET['module']) || empty($_GET['module'])) {
-        return;
-    }
-
-    $module = sanitize_title($_GET['module']);
-    $node = $wp_admin_bar->get_node('new-notifications');
-    if ($node) {
-        $node->href = add_query_arg('module', $module, $node->href);
-        $wp_admin_bar->add_node($node);
-    }
-}
-add_action('admin_bar_menu', 'can_modify_admin_bar_add_new_link', 999);
-
-function can_filter_notifications_by_module($query) {
-    if (is_admin() && $query->is_main_query() && $query->get('post_type') === 'notifications') {
-        if (isset($_GET['module']) && !empty($_GET['module'])) {
-            $module = sanitize_title($_GET['module']);
-            $query->set('meta_query', array(
-                array(
-                    'key' => 'can_module',
-                    'value' => $module,
-                    'compare' => '='
-                )
-            ));
-        }
-    }
-}
-add_action('pre_get_posts', 'can_filter_notifications_by_module');
-
-function can_add_custom_image_size() {
-    add_image_size('can-notification-thumb', 224, 120, true);
-}
-add_action('init', 'can_add_custom_image_size');
-
-// Enqueue Custom CSS for Shortcodes
-function can_enqueue_custom_css() {
-    if (is_admin()) {
-        return;
-    }
-
-    $modules = can_get_modules();
-    if (empty($modules)) {
-        return;
-    }
-
-    global $post;
-    if (!$post || !isset($post->post_content)) {
-        return;
-    }
-
-    foreach ($modules as $module) {
-        $shortcode = 'display_' . $module['slug'] . '_notifications';
-        if (has_shortcode($post->post_content, $shortcode)) {
-            $option_group = 'can_settings_' . $module['slug'];
-            $custom_css_option = $option_group . '_custom_css';
-            $custom_css = get_option($custom_css_option, '');
-
-            if (!empty($custom_css)) {
-                wp_register_style('can-custom-css-' . $module['slug'], false);
-                wp_enqueue_style('can-custom-css-' . $module['slug']);
-                wp_add_inline_style('can-custom-css-' . $module['slug'], $custom_css);
-            }
-        }
-    }
-}
-add_action('wp_enqueue_scripts', 'can_enqueue_custom_css');
-
+// start new code 
 function can_register_module_shortcodes() {
     $modules = can_get_modules();
     if (empty($modules)) {
@@ -725,7 +584,9 @@ function can_register_module_shortcodes() {
                         $excerpt = wp_trim_words(wp_strip_all_tags(get_the_excerpt()), 15, '...');
                         $show_author = get_post_meta($post_id, 'can_show_author', true) ? '1' : '0';
                         $show_date = get_post_meta($post_id, 'can_show_date', true) ? '1' : '0';
-                        $show_site = get_post_meta($post_id, 'can_show_site', true) ? '1' : '0';
+                        $show_site = get_post_meta($post_id, 'can_show_site', true)
+
+ ? '1' : '0';
 
                         $output .= '<div class="can-notification-card">';
                         if (has_post_thumbnail()) {
@@ -778,9 +639,9 @@ function can_register_module_shortcodes() {
                             color: #fff;
                             text-align: center;
                             padding: 20px;
-                            font-size: 14px;
-                            height: 80px;
-                            width: 224px;
+                            font-size: 24px;
+                            height: 150px;
+                            width: 400px;
                             line-height: 80px;
                         }
                         .can-shortcode-container.' . $module_class_grid . ' .can-notification-thumbnail img {
@@ -1029,6 +890,775 @@ function can_display_network_notifications_shortcode($atts) {
     return ob_get_clean();
 }
 add_shortcode('display_network_notifications', 'can_display_network_notifications_shortcode');
+
+function can_display_homepage_notifications_shortcode($atts) {
+    if (!function_exists('is_multisite') || !is_multisite()) {
+        return '<p>This shortcode is designed for multisite networks only.</p>';
+    }
+
+    $atts = shortcode_atts(array(
+        'limit' => 5,
+        'module' => '',
+    ), $atts, 'display_homepage_notifications');
+
+    $limit = intval($atts['limit']);
+    $module = sanitize_title($atts['module']);
+    if (empty($module)) {
+        return '<p>Please specify a module parameter (e.g., module="career").</p>';
+    }
+
+    // Fetch the custom site name for this module
+    $option_group = 'can_settings_' . $module;
+    $custom_site_name = get_option($option_group . '_custom_site_name', '');
+
+    ob_start();
+    $module_class = esc_attr($module) . '-notifications';
+    echo '<div class="can-homepage-notifications ' . $module_class . '">';
+
+    $sites = get_sites();
+    $approved_notifications = array();
+
+    foreach ($sites as $site) {
+        switch_to_blog($site->blog_id);
+
+        // Use custom site name if available, otherwise fall back to bloginfo
+        $site_name = !empty($custom_site_name) ? $custom_site_name : get_bloginfo('name');
+
+        $query_args = array(
+            'post_type' => 'notifications',
+            'posts_per_page' => $limit,
+            'meta_query' => array(
+                array(
+                    'key' => 'can_homepage_approved',
+                    'value' => '1',
+                    'compare' => '='
+                ),
+                array(
+                    'key' => 'can_module',
+                    'value' => $module,
+                    'compare' => '='
+                )
+            )
+        );
+
+        $query = new WP_Query($query_args);
+
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $post_id = get_the_ID();
+                $approved_notifications[] = array(
+                    'ID' => $post_id,
+                    'title' => get_the_title(),
+                    'permalink' => get_permalink(),
+                    'date' => get_the_date('Y-m-d H:i:s'),
+                    'excerpt' => get_the_excerpt(),
+                    'author' => get_the_author(),
+                    'site_name' => $site_name,
+                    'site_id' => $site->blog_id,
+                    'show_author' => get_post_meta($post_id, 'can_show_author', true),
+                    'show_date' => get_post_meta($post_id, 'can_show_date', true),
+                    'show_site' => get_post_meta($post_id, 'can_show_site', true),
+                    'timestamp' => get_post_time('U', true),
+                    'has_thumbnail' => has_post_thumbnail(),
+                    'thumbnail_html' => get_the_post_thumbnail(null, 'thumbnail')
+                );
+            }
+        }
+
+        wp_reset_postdata();
+        restore_current_blog();
+    }
+
+    usort($approved_notifications, function($a, $b) {
+        return $b['timestamp'] - $a['timestamp'];
+    });
+
+    $approved_notifications = array_slice($approved_notifications, 0, $limit);
+
+    if (!empty($approved_notifications)) {
+        echo '<div class="can-notifications-grid">';
+        foreach ($approved_notifications as $notification) {
+            echo '<div class="can-notification-card">';
+            if ($notification['has_thumbnail']) {
+                echo '<div class="can-notification-thumbnail">';
+                echo $notification['thumbnail_html'];
+                echo '</div>';
+            }
+
+            echo '<h5 class="can-notification-title"><a href="' . esc_url($notification['permalink']) . '">' . esc_html($notification['title']) . '</a></h5>';
+
+            $meta_info = array();
+            if ($notification['show_author']) {
+                $meta_info[] = 'Author: ' . esc_html($notification['author']);
+            }
+            if ($notification['show_date']) {
+                $meta_info[] = 'Date: ' . date_i18n(get_option('date_format'), $notification['timestamp']);
+            }
+            if ($notification['show_site']) {
+                $meta_info[] = 'Dept: ' . esc_html($notification['site_name']);
+            }
+            if (!empty($meta_info)) {
+                echo '<div style="font-size: 9px;" class="can-notification-meta">' . implode(' | ', $meta_info) . '</div>';
+            }
+
+            echo '<div class="can-notification-excerpt">' . wp_kses_post(can_truncate_text($notification['excerpt'], 100)) . '</div>';
+            echo '<a href="' . esc_url($notification['permalink']) . '" class="can-read-more">Read More</a>';
+            echo '</div>';
+        }
+        echo '</div>';
+    } else {
+        echo '<p>No approved homepage notifications found.</p>';
+    }
+
+    echo '</div>';
+
+    echo '<style>
+        .can-homepage-notifications.' . $module_class . ' .can-notifications-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .can-homepage-notifications.' . $module_class . ' .can-notification-card {
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .can-homepage-notifications.' . $module_class . ' .can-notification-thumbnail img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .can-homepage-notifications.' . $module_class . ' .can-notification-title {
+            margin: 15px 15px 10px;
+            font-size: 18px;
+        }
+        .can-homepage-notifications.' . $module_class . ' .can-notification-meta {
+            margin: 0 15px 10px;
+            font-size: 9px;
+            color: #666;
+        }
+        .can-homepage-notifications.' . $module_class . ' .can-notification-excerpt {
+            margin: 0 15px 15px;
+            font-size: 15px;
+            line-height: 1.5;
+            flex-grow: 1;
+        }
+        .can-homepage-notifications.' . $module_class . ' .can-read-more {
+            display: inline-block;
+            margin: 0 15px 15px;
+            padding: 8px 15px;
+            background: #993333;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 14px;
+            align-self: flex-start;
+        }
+        .can-homepage-notifications.' . $module_class . ' .can-read-more:hover {
+            background: #7a2828;
+        }
+        @media (max-width: 768px) {
+            .can-homepage-notifications.' . $module_class . ' .can-notifications-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>';
+
+    return ob_get_clean();
+}
+add_shortcode('display_homepage_notifications', 'can_display_homepage_notifications_shortcode');
+
+function can_custom_css_page_callback($module) {
+    if (!current_user_can('edit_posts')) {
+        wp_die(__('You do not have sufficient permissions to access this page.', 'custom-notifications-manager'));
+    }
+
+    $option_group = 'can_settings_' . $module['slug'];
+    $custom_css_option = $option_group . '_custom_css';
+    $custom_site_name_option = $option_group . '_custom_site_name';
+    $text_color_option = $option_group . '_text_color';
+    $font_style_option = $option_group . '_font_style';
+    $placeholder_bg_color_option = $option_group . '_placeholder_bg_color';
+    $icon_color_option = $option_group . '_icon_color';
+    $scroll_effect_option = $option_group . '_scroll_effect';
+    $scroll_height_option = $option_group . '_scroll_height';
+    $scroll_width_option = $option_group . '_scroll_width';
+    $scroll_time_option = $option_group . '_scroll_time';
+    $padding_top_option = $option_group . '_padding_top';
+    $padding_bottom_option = $option_group . '_padding_bottom';
+    $padding_left_option = $option_group . '_padding_left';
+    $padding_right_option = $option_group . '_padding_right';
+    $list_text_size_option = $option_group . '_list_text_size';
+    $grid_title_text_size_option = $option_group . '_grid_title_text_size';
+    $grid_description_text_size_option = $option_group . '_grid_description_text_size';
+
+    // Handle form submission
+    if (isset($_POST['can_custom_css_submit']) && check_admin_referer('can_custom_css_nonce_' . $module['slug'])) {
+        // Save Custom CSS
+        $custom_css = isset($_POST['can_custom_css']) ? wp_strip_all_tags($_POST['can_custom_css']) : '';
+        update_option($custom_css_option, $custom_css);
+
+        // Save Custom Site Name
+        $custom_site_name = isset($_POST['can_custom_site_name']) ? sanitize_text_field($_POST['can_custom_site_name']) : '';
+        update_option($custom_site_name_option, $custom_site_name);
+
+        // Save Text Color
+        $text_color = isset($_POST['can_text_color']) ? sanitize_hex_color($_POST['can_text_color']) : '';
+        update_option($text_color_option, $text_color);
+
+        // Save Font Style
+        $font_style = isset($_POST['can_font_style']) ? sanitize_text_field($_POST['can_font_style']) : '';
+        update_option($font_style_option, $font_style);
+
+        // Save Placeholder Background Color
+        $placeholder_bg_color = isset($_POST['can_placeholder_bg_color']) ? sanitize_hex_color($_POST['can_placeholder_bg_color']) : '';
+        update_option($placeholder_bg_color_option, $placeholder_bg_color);
+
+        // Save Icon Color
+        $icon_color = isset($_POST['can_icon_color']) ? sanitize_hex_color($_POST['can_icon_color']) : '';
+        update_option($icon_color_option, $icon_color);
+
+        // Save Scroll Effect
+        $scroll_effect = isset($_POST['can_scroll_effect']) ? sanitize_text_field($_POST['can_scroll_effect']) : 'none';
+        update_option($scroll_effect_option, $scroll_effect);
+
+        // Save Scroll Dimensions
+        $scroll_height = isset($_POST['can_scroll_height']) ? absint($_POST['can_scroll_height']) : '';
+        update_option($scroll_height_option, $scroll_height);
+        $scroll_width = isset($_POST['can_scroll_width']) ? absint($_POST['can_scroll_width']) : '';
+        update_option($scroll_width_option, $scroll_width);
+
+        // Save Scroll Time
+        $scroll_time = isset($_POST['can_scroll_time']) ? floatval($_POST['can_scroll_time']) : '';
+        update_option($scroll_time_option, $scroll_time);
+
+        // Save Padding
+        $padding_top = isset($_POST['can_padding_top']) ? absint($_POST['can_padding_top']) : '';
+        update_option($padding_top_option, $padding_top);
+        $padding_bottom = isset($_POST['can_padding_bottom']) ? absint($_POST['can_padding_bottom']) : '';
+        update_option($padding_bottom_option, $padding_bottom);
+        $padding_left = isset($_POST['can_padding_left']) ? absint($_POST['can_padding_left']) : '';
+        update_option($padding_left_option, $padding_left);
+        $padding_right = isset($_POST['can_padding_right']) ? absint($_POST['can_padding_right']) : '';
+        update_option($padding_right_option, $padding_right);
+
+        // Save List Text Size
+        $list_text_size = isset($_POST['can_list_text_size']) ? absint($_POST['can_list_text_size']) : '';
+        update_option($list_text_size_option, $list_text_size);
+
+        // Save Grid Text Sizes
+        $grid_title_text_size = isset($_POST['can_grid_title_text_size']) ? absint($_POST['can_grid_title_text_size']) : '';
+        update_option($grid_title_text_size_option, $grid_title_text_size);
+        $grid_description_text_size = isset($_POST['can_grid_description_text_size']) ? absint($_POST['can_grid_description_text_size']) : '';
+        update_option($grid_description_text_size_option, $grid_description_text_size);
+
+        echo '<div class="notice notice-success is-dismissible"><p>' . __('Settings saved successfully!', 'custom-notifications-manager') . '</p></div>';
+    }
+
+    $custom_css = get_option($custom_css_option, '');
+    $custom_site_name = get_option($custom_site_name_option, '');
+    $text_color = get_option($text_color_option, '');
+    $font_style = get_option($font_style_option, '');
+    $placeholder_bg_color = get_option($placeholder_bg_color_option, '');
+    $icon_color = get_option($icon_color_option, '');
+    $scroll_effect = get_option($scroll_effect_option, 'none');
+    $scroll_height = get_option($scroll_height_option, '');
+    $scroll_width = get_option($scroll_width_option, '');
+    $scroll_time = get_option($scroll_time_option, '');
+    $padding_top = get_option($padding_top_option, '');
+    $padding_bottom = get_option($padding_bottom_option, '');
+    $padding_left = get_option($padding_left_option, '');
+    $padding_right = get_option($padding_right_option, '');
+    $list_text_size = get_option($list_text_size_option, '');
+    $grid_title_text_size = get_option($grid_title_text_size_option, '');
+    $grid_description_text_size = get_option($grid_description_text_size_option, '');
+    $site_name = !empty($custom_site_name) ? $custom_site_name : get_bloginfo('name');
+    $module_name = $module['name'];
+    ?>
+    <div class="wrap">
+        <h1><?php printf(__('%s Custom Settings', 'custom-notifications-manager'), esc_html($module['name'])); ?></h1>
+        
+        <form method="post" action="">
+            <?php wp_nonce_field('can_custom_css_nonce_' . $module['slug']); ?>
+            <!-- Custom Site Name Section -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="text-transform: uppercase; font-size: 14px; margin-bottom: 5px;"><?php _e('Custom Site Name', 'custom-notifications-manager'); ?></h3>
+                <div style="border: 1px solid #ddd; padding: 10px; background: #f9f9f9; font-size: 16px; font-weight: bold;">
+                    <input type="text" name="can_custom_site_name" id="can_custom_site_name" value="<?php echo esc_attr($site_name); ?>" style="width: 70%; font-size: 16px; font-weight: bold; border: none; background: none;" />
+                    - <span style="color: red;"><?php echo esc_html($module_name); ?></span>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                    <?php printf(__('This name will be displayed when an author checks "Show Site Name" for an %s.', 'custom-notifications-manager'), esc_html($module_name)); ?>
+                </p>
+            </div>
+
+            <!-- Text Color Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_text_color"><?php _e('Text Color', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" name="can_text_color" id="can_text_color" value="<?php echo esc_attr($text_color); ?>" class="regular-text" data-type="color" />
+                        <p class="description"><?php printf(__('Set the text color for [display_%s_notifications] and [display_%s_notifications site="site_id"] shortcodes.', 'custom-notifications-manager'), esc_attr($module['slug']), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Font Style Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_font_style"><?php _e('Font Style', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <select name="can_font_style" id="can_font_style">
+                            <option value="" <?php selected($font_style, ''); ?>><?php _e('Default', 'custom-notifications-manager'); ?></option>
+                            <option value="Arial, sans-serif" <?php selected($font_style, 'Arial, sans-serif'); ?>>Arial</option>
+                            <option value="Helvetica, sans-serif" <?php selected($font_style, 'Helvetica, sans-serif'); ?>>Helvetica</option>
+                            <option value="Times New Roman, serif" <?php selected($font_style, 'Times New Roman, serif'); ?>>Times New Roman</option>
+                            <option value="Georgia, serif" <?php selected($font_style, 'Georgia, serif'); ?>>Georgia</option>
+                            <option value="Courier New, monospace" <?php selected($font_style, 'Courier New, monospace'); ?>>Courier New</option>
+                        </select>
+                        <p class="description"><?php printf(__('Select the font style for all shortcode outputs.', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Placeholder Background Color Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_placeholder_bg_color"><?php _e('Placeholder Background Color', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" name="can_placeholder_bg_color" id="can_placeholder_bg_color" value="<?php echo esc_attr($placeholder_bg_color); ?>" class="regular-text" data-type="color" />
+                        <p class="description"><?php printf(__('Set the background color for the placeholder image in .%s-notifications-grid .can-notification-placeholder.', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Icon Color Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_icon_color"><?php _e('Icon Color', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" name="can_icon_color" id="can_icon_color" value="<?php echo esc_attr($icon_color); ?>" class="regular-text" data-type="color" />
+                        <p class="description"><?php printf(__('Set the icon color for the list layout in [display_%s_notifications] (affects the left border and arrow of list items).', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Scroll Effect Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_scroll_effect"><?php _e('Scrolling Effect', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <select name="can_scroll_effect" id="can_scroll_effect">
+                            <option value="none" <?php selected($scroll_effect, 'none'); ?>><?php _e('None', 'custom-notifications-manager'); ?></option>
+                            <option value="fade" <?php selected($scroll_effect, 'fade'); ?>><?php _e('Fade', 'custom-notifications-manager'); ?></option>
+                            <option value="slide-up" <?php selected($scroll_effect, 'slide-up'); ?>><?php _e('Slide Up', 'custom-notifications-manager'); ?></option>
+                            <option value="slide-left" <?php selected($scroll_effect, 'slide-left'); ?>><?php _e('Slide Left', 'custom-notifications-manager'); ?></option>
+                            <option value="loop" <?php selected($scroll_effect, 'loop'); ?>><?php _e('Loop', 'custom-notifications-manager'); ?></option>
+                        </select>
+                        <p class="description"><?php printf(__('Select a scrolling effect for [display_%s_notifications] list layout.', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Scroll Dimensions Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_scroll_height"><?php _e('Scroll Effect Height', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" name="can_scroll_height" id="can_scroll_height" value="<?php echo esc_attr($scroll_height); ?>" min="0" class="regular-text" />
+                        <p class="description"><?php printf(__('Set the maximum height (in pixels) for posts in [display_%s_notifications] scrolling effect.', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="can_scroll_width"><?php _e('Scroll Effect Width', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" name="can_scroll_width" id="can_scroll_width" value="<?php echo esc_attr($scroll_width); ?>" min="0" class="regular-text" />
+                        <p class="description"><?php printf(__('Set the maximum width (in pixels) for posts in [display_%s_notifications] scrolling effect.', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Scroll Time Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_scroll_time"><?php _e('Scroll Effect Duration', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" step="0.1" name="can_scroll_time" id="can_scroll_time" value="<?php echo esc_attr($scroll_time); ?>" min="0" class="regular-text" />
+                        <p class="description"><?php printf(__('Set the duration (in seconds) for the scrolling effect animation in [display_%s_notifications].', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Padding Section for List Layout -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label><?php _e('List Layout Padding', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <label for="can_padding_top"><?php _e('Top Padding', 'custom-notifications-manager'); ?></label>
+                        <input type="number" name="can_padding_top" id="can_padding_top" value="<?php echo esc_attr($padding_top); ?>" min="0" class="regular-text" style="width: 100px;" /> px
+                        <br><br>
+                        <label for="can_padding_bottom"><?php _e('Bottom Padding', 'custom-notifications-manager'); ?></label>
+                        <input type="number" name="can_padding_bottom" id="can_padding_bottom" value="<?php echo esc_attr($padding_bottom); ?>" min="0" class="regular-text" style="width: 100px;" /> px
+                        <br><br>
+                        <label for="can_padding_left"><?php _e('Left Padding', 'custom-notifications-manager'); ?></label>
+                        <input type="number" name="can_padding_left" id="can_padding_left" value="<?php echo esc_attr($padding_left); ?>" min="0" class="regular-text" style="width: 100px;" /> px
+                        <br><br>
+                        <label for="can_padding_right"><?php _e('Right Padding', 'custom-notifications-manager'); ?></label>
+                        <input type="number" name="can_padding_right" id="can_padding_right" value="<?php echo esc_attr($padding_right); ?>" min="0" class="regular-text" style="width: 100px;" /> px
+                        <p class="description"><?php printf(__('Set the padding (in pixels) for the list layout in [display_%s_notifications] for .%s-notifications-list.', 'custom-notifications-manager'), esc_attr($module['slug']), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- List Text Size Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_list_text_size"><?php _e('List Layout Text Size', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" name="can_list_text_size" id="can_list_text_size" value="<?php echo esc_attr($list_text_size); ?>" min="0" class="regular-text" style="width: 100px;" /> px
+                        <p class="description"><?php printf(__('Set the text size (in pixels) for the list layout in [display_%s_notifications] for .%s-notifications-list.', 'custom-notifications-manager'), esc_attr($module['slug']), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Grid Text Sizes Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label><?php _e('Grid Layout Text Sizes', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <label for="can_grid_title_text_size"><?php _e('Title Text Size', 'custom-notifications-manager'); ?></label>
+                        <input type="number" name="can_grid_title_text_size" id="can_grid_title_text_size" value="<?php echo esc_attr($grid_title_text_size); ?>" min="0" class="regular-text" style="width: 100px;" /> px
+                        <br><br>
+                        <label for="can_grid_description_text_size"><?php _e('Description Text Size', 'custom-notifications-manager'); ?></label>
+                        <input type="number" name="can_grid_description_text_size" id="can_grid_description_text_size" value="<?php echo esc_attr($grid_description_text_size); ?>" min="0" class="regular-text" style="width: 100px;" /> px
+                        <p class="description"><?php printf(__('Set the text sizes (in pixels) for the title and description in [display_%s_notifications site="site_id"] for .%s-notifications-grid.', 'custom-notifications-manager'), esc_attr($module['slug']), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Custom CSS Section -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="can_custom_css"><?php _e('Custom CSS', 'custom-notifications-manager'); ?></label>
+                    </th>
+                    <td>
+                        <textarea name="can_custom_css" id="can_custom_css" rows="10" class="large-text code"><?php echo esc_textarea($custom_css); ?></textarea>
+                        <p class="description"><?php printf(__('Add custom CSS to style the [display_%s_notifications] shortcode output.', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                        <p class="description"><?php printf(__('For list layout: .%s-notifications-list { background: #F5F5F5; padding: 15px; }', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                        <p class="description"><?php printf(__('For grid layout: .%s-notifications-grid { background: #F5F5F5; padding: 15px; }', 'custom-notifications-manager'), esc_attr($module['slug'])); ?></p>
+                    </td>
+                </tr>
+            </table>
+            <p class="submit">
+                <input type="submit" name="can_custom_css_submit" class="button button-primary" value="<?php _e('Save Settings', 'custom-notifications-manager'); ?>">
+            </p>
+        </form>
+    </div>
+    <?php
+}
+
+function can_enqueue_custom_css() {
+    if (is_admin()) {
+        return;
+    }
+
+    $modules = can_get_modules();
+    if (empty($modules)) {
+        return;
+    }
+
+    global $post;
+    if (!$post || !isset($post->post_content)) {
+        return;
+    }
+
+    foreach ($modules as $module) {
+        $shortcode = 'display_' . $module['slug'] . '_notifications';
+        if (has_shortcode($post->post_content, $shortcode)) {
+            $option_group = 'can_settings_' . $module['slug'];
+            $custom_css_option = $option_group . '_custom_css';
+            $text_color_option = $option_group . '_text_color';
+            $font_style_option = $option_group . '_font_style';
+            $placeholder_bg_color_option = $option_group . '_placeholder_bg_color';
+            $icon_color_option = $option_group . '_icon_color';
+            $scroll_effect_option = $option_group . '_scroll_effect';
+            $scroll_height_option = $option_group . '_scroll_height';
+            $scroll_width_option = $option_group . '_scroll_width';
+            $scroll_time_option = $option_group . '_scroll_time';
+            $padding_top_option = $option_group . '_padding_top';
+            $padding_bottom_option = $option_group . '_padding_bottom';
+            $padding_left_option = $option_group . '_padding_left';
+            $padding_right_option = $option_group . '_padding_right';
+            $list_text_size_option = $option_group . '_list_text_size';
+            $grid_title_text_size_option = $option_group . '_grid_title_text_size';
+            $grid_description_text_size_option = $option_group . '_grid_description_text_size';
+
+            // Fetch options with a fallback to empty string
+            $custom_css = get_option($custom_css_option, '');
+            $text_color = get_option($text_color_option, '');
+            $font_style = get_option($font_style_option, '');
+            $placeholder_bg_color = get_option($placeholder_bg_color_option, '');
+            $icon_color = get_option($icon_color_option, '');
+            $scroll_effect = get_option($scroll_effect_option, 'none');
+            $scroll_height = get_option($scroll_height_option, '');
+            $scroll_width = get_option($scroll_width_option, '');
+            $scroll_time = get_option($scroll_time_option, '');
+            $padding_top = get_option($padding_top_option, '');
+            $padding_bottom = get_option($padding_bottom_option, '');
+            $padding_left = get_option($padding_left_option, '');
+            $padding_right = get_option($padding_right_option, '');
+            $list_text_size = get_option($list_text_size_option, '');
+            $grid_title_text_size = get_option($grid_title_text_size_option, '');
+            $grid_description_text_size = get_option($grid_description_text_size_option, '');
+
+            // Debug log to check option values
+            if (WP_DEBUG) {
+                error_log('CAN Text Color for ' . $module['slug'] . ': ' . ($text_color ? $text_color : 'Not set'));
+                error_log('CAN Placeholder BG Color for ' . $module['slug'] . ': ' . ($placeholder_bg_color ? $placeholder_bg_color : 'Not set'));
+                error_log('CAN Icon Color for ' . $module['slug'] . ': ' . ($icon_color ? $icon_color : 'Not set'));
+                error_log('CAN Padding Top for ' . $module['slug'] . ': ' . ($padding_top ? $padding_top : 'Not set'));
+                error_log('CAN Padding Bottom for ' . $module['slug'] . ': ' . ($padding_bottom ? $padding_bottom : 'Not set'));
+                error_log('CAN Padding Left for ' . $module['slug'] . ': ' . ($padding_left ? $padding_left : 'Not set'));
+                error_log('CAN Padding Right for ' . $module['slug'] . ': ' . ($padding_right ? $padding_right : 'Not set'));
+                error_log('CAN List Text Size for ' . $module['slug'] . ': ' . ($list_text_size ? $list_text_size : 'Not set'));
+                error_log('CAN Grid Title Text Size for ' . $module['slug'] . ': ' . ($grid_title_text_size ? $grid_title_text_size : 'Not set'));
+                error_log('CAN Grid Description Text Size for ' . $module['slug'] . ': ' . ($grid_description_text_size ? $grid_description_text_size : 'Not set'));
+            }
+
+            $dynamic_css = '';
+            // Apply text color to both grid and list layouts with high specificity
+            if (!empty($text_color) && sanitize_hex_color($text_color)) {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-list ul, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-list ul li, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-list ul li a, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-list .can-notification-meta { "
+                             . "color: {$text_color} !important; }\n";
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-grid, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-card, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-title a, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-excerpt, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-meta { "
+                             . "color: {$text_color} !important; }\n";
+            } else {
+                // Fallback text color
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-list ul li a, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-list .can-notification-meta, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-card, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-title a, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-excerpt, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-meta { "
+                             . "color: #333 !important; }\n";
+            }
+
+            // Apply placeholder background color with high specificity
+            if (!empty($placeholder_bg_color) && sanitize_hex_color($placeholder_bg_color)) {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notifications-grid .can-notification-card .can-notification-placeholder { "
+                             . "background: {$placeholder_bg_color} !important; }\n";
+            } else {
+                // Fallback placeholder background color
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notifications-grid .can-notification-card .can-notification-placeholder { "
+                             . "background: #993333 !important; }\n";
+            }
+
+            // Apply icon color to list layout border and pseudo-element
+            if (!empty($icon_color) && sanitize_hex_color($icon_color)) {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul li { "
+                             . "border-left: 4px solid {$icon_color} !important; }\n";
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul li::before { "
+                             . "border-left: 5px solid {$icon_color} !important; }\n";
+            } else {
+                // Fallback icon color
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul li { "
+                             . "border-left: 4px solid #993333 !important; }\n";
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul li::before { "
+                             . "border-left: 5px solid #6c757d !important; }\n";
+            }
+
+            // Apply font style to both grid and list layouts
+            if (!empty($font_style)) {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-grid, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-list { "
+                             . "font-family: {$font_style}; }\n";
+            }
+
+            // Apply padding to list layout items (ul li)
+            if ($padding_top !== '' || $padding_bottom !== '' || $padding_left !== '' || $padding_right !== '') {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul li { ";
+                if ($padding_top !== '') {
+                    $dynamic_css .= "padding-top: {$padding_top}px !important; ";
+                }
+                if ($padding_bottom !== '') {
+                    $dynamic_css .= "padding-bottom: {$padding_bottom}px !important; ";
+                }
+                if ($padding_left !== '') {
+                    $dynamic_css .= "padding-left: {$padding_left}px !important; ";
+                }
+                if ($padding_right !== '') {
+                    $dynamic_css .= "padding-right: {$padding_right}px !important; ";
+                }
+                $dynamic_css .= "}\n";
+            }
+
+            // Apply list text size
+            if ($list_text_size !== '' && $list_text_size > 0) {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul li a, "
+                             . ".can-shortcode-container.{$module['slug']}-notifications-list .can-notification-meta { "
+                             . "font-size: {$list_text_size}px !important; }\n";
+            }
+
+            // Apply grid text sizes
+            if ($grid_title_text_size !== '' && $grid_title_text_size > 0) {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-title { "
+                             . "font-size: {$grid_title_text_size}px !important; }\n";
+            }
+            if ($grid_description_text_size !== '' && $grid_description_text_size > 0) {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-grid .can-notification-excerpt { "
+                             . "font-size: {$grid_description_text_size}px !important; }\n";
+            }
+
+            // Apply scrolling effect for list layout
+            if ($scroll_effect !== 'none') {
+                $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list { "
+                             . "overflow: hidden; position: relative; }\n";
+                if ($scroll_effect === 'loop') {
+                    $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul { "
+                                 . "animation: loop-scroll " . ($scroll_time ? $scroll_time : '10') . "s linear infinite; }\n";
+                    $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul:hover { "
+                                 . "animation-play-state: paused; }\n";
+                } else {
+                    $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul li { "
+                                 . "animation: {$scroll_effect} " . ($scroll_time ? $scroll_time : '2') . "s ease-in-out; }\n";
+                }
+                if ($scroll_height) {
+                    $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list { "
+                                 . "max-height: {$scroll_height}px; }\n";
+                }
+                if ($scroll_width) {
+                    $dynamic_css .= ".can-shortcode-container.{$module['slug']}-notifications-list ul li { "
+                                 . "max-width: {$scroll_width}px; }\n";
+                }
+            }
+
+            // Keyframes for scrolling effects
+            if ($scroll_effect === 'fade') {
+                $dynamic_css .= "@keyframes fade {
+                    0% { opacity: 0; }
+                    100% { opacity: 1; }
+                }\n";
+            } elseif ($scroll_effect === 'slide-up') {
+                $dynamic_css .= "@keyframes slide-up {
+                    0% { transform: translateY(100%); }
+                    100% { transform: translateY(0); }
+                }\n";
+            } elseif ($scroll_effect === 'slide-left') {
+                $dynamic_css .= "@keyframes slide-left {
+                    0% { transform: translateX(100%); }
+                    100% { transform: translateX(0); }
+                }\n";
+            } elseif ($scroll_effect === 'loop') {
+                $dynamic_css .= "@keyframes loop-scroll {
+                    0% { transform: translateY(0); }
+                    100% { transform: translateY(-100%); }
+                }\n";
+            }
+
+            // Combine custom CSS with dynamic CSS
+            $final_css = $custom_css . "\n" . $dynamic_css;
+
+            if (!empty($final_css)) {
+                // Use a unique handle with timestamp to avoid caching
+                $css_handle = 'can-custom-css-' . $module['slug'] . '-' . time();
+                wp_register_style($css_handle, false, [], null);
+                wp_enqueue_style($css_handle);
+                wp_add_inline_style($css_handle, $final_css);
+            }
+        }
+    }
+}
+add_action('wp_enqueue_scripts', 'can_enqueue_custom_css');
+
+
+// end of new code 
+
+
+
+function can_modify_add_new_link($url, $path, $blog_id) {
+    if ($path === 'post-new.php?post_type=notifications' && is_admin() && isset($_GET['post_type']) && $_GET['post_type'] === 'notifications' && isset($_GET['module']) && !empty($_GET['module'])) {
+        $module = sanitize_title($_GET['module']);
+        $url = add_query_arg('module', $module, $url);
+    }
+    return $url;
+}
+add_filter('admin_url', 'can_modify_add_new_link', 10, 3);
+
+function can_modify_admin_bar_add_new_link($wp_admin_bar) {
+    if (!is_admin() || !isset($_GET['post_type']) || $_GET['post_type'] !== 'notifications' || !isset($_GET['module']) || empty($_GET['module'])) {
+        return;
+    }
+
+    $module = sanitize_title($_GET['module']);
+    $node = $wp_admin_bar->get_node('new-notifications');
+    if ($node) {
+        $node->href = add_query_arg('module', $module, $node->href);
+        $wp_admin_bar->add_node($node);
+    }
+}
+add_action('admin_bar_menu', 'can_modify_admin_bar_add_new_link', 999);
+
+function can_filter_notifications_by_module($query) {
+    if (is_admin() && $query->is_main_query() && $query->get('post_type') === 'notifications') {
+        if (isset($_GET['module']) && !empty($_GET['module'])) {
+            $module = sanitize_title($_GET['module']);
+            $query->set('meta_query', array(
+                array(
+                    'key' => 'can_module',
+                    'value' => $module,
+                    'compare' => '='
+                )
+            ));
+        }
+    }
+}
+add_action('pre_get_posts', 'can_filter_notifications_by_module');
+
+function can_add_custom_image_size() {
+    add_image_size('can-notification-thumb', 224, 120, true);
+}
+add_action('init', 'can_add_custom_image_size');
+
+// Enqueue Custom CSS for Shortcodes
+
 
 function can_add_network_admin_menu() {
     if (!function_exists('is_multisite') || !is_multisite() || !is_super_admin()) {
@@ -1398,188 +2028,6 @@ function can_network_notifications_page() {
     </div>
     <?php
 }
-
-function can_display_homepage_notifications_shortcode($atts) {
-    if (!function_exists('is_multisite') || !is_multisite()) {
-        return '<p>This shortcode is designed for multisite networks only.</p>';
-    }
-
-    $atts = shortcode_atts(array(
-        'limit' => 5,
-        'module' => '',
-    ), $atts, 'display_homepage_notifications');
-
-    $limit = intval($atts['limit']);
-    $module = sanitize_title($atts['module']);
-    if (empty($module)) {
-        return '<p>Please specify a module parameter (e.g., module="career").</p>';
-    }
-
-    // Fetch the custom site name for this module
-    $option_group = 'can_settings_' . $module;
-    $custom_site_name = get_option($option_group . '_custom_site_name', '');
-
-    ob_start();
-    $module_class = esc_attr($module) . '-notifications';
-    echo '<div class="can-homepage-notifications ' . $module_class . '">';
-
-    $sites = get_sites();
-    $approved_notifications = array();
-
-    foreach ($sites as $site) {
-        switch_to_blog($site->blog_id);
-
-        // Use custom site name if available, otherwise fall back to bloginfo
-        $site_name = !empty($custom_site_name) ? $custom_site_name : get_bloginfo('name');
-
-        $query_args = array(
-            'post_type' => 'notifications',
-            'posts_per_page' => $limit,
-            'meta_query' => array(
-                array(
-                    'key' => 'can_homepage_approved',
-                    'value' => '1',
-                    'compare' => '='
-                ),
-                array(
-                    'key' => 'can_module',
-                    'value' => $module,
-                    'compare' => '='
-                )
-            )
-        );
-
-        $query = new WP_Query($query_args);
-
-        if ($query->have_posts()) {
-            while ($query->have_posts()) {
-                $query->the_post();
-                $post_id = get_the_ID();
-                $approved_notifications[] = array(
-                    'ID' => $post_id,
-                    'title' => get_the_title(),
-                    'permalink' => get_permalink(),
-                    'date' => get_the_date('Y-m-d H:i:s'),
-                    'excerpt' => get_the_excerpt(),
-                    'author' => get_the_author(),
-                    'site_name' => $site_name,
-                    'site_id' => $site->blog_id,
-                    'show_author' => get_post_meta($post_id, 'can_show_author', true),
-                    'show_date' => get_post_meta($post_id, 'can_show_date', true),
-                    'show_site' => get_post_meta($post_id, 'can_show_site', true),
-                    'timestamp' => get_post_time('U', true),
-                    'has_thumbnail' => has_post_thumbnail(),
-                    'thumbnail_html' => get_the_post_thumbnail(null, 'thumbnail')
-                );
-            }
-        }
-
-        wp_reset_postdata();
-        restore_current_blog();
-    }
-
-    usort($approved_notifications, function($a, $b) {
-        return $b['timestamp'] - $a['timestamp'];
-    });
-
-    $approved_notifications = array_slice($approved_notifications, 0, $limit);
-
-    if (!empty($approved_notifications)) {
-        echo '<div class="can-notifications-grid">';
-        foreach ($approved_notifications as $notification) {
-            echo '<div class="can-notification-card">';
-            if ($notification['has_thumbnail']) {
-                echo '<div class="can-notification-thumbnail">';
-                echo $notification['thumbnail_html'];
-                echo '</div>';
-            }
-
-            echo '<h5 class="can-notification-title"><a href="' . esc_url($notification['permalink']) . '">' . esc_html($notification['title']) . '</a></h5>';
-
-            $meta_info = array();
-            if ($notification['show_author']) {
-                $meta_info[] = 'Author: ' . esc_html($notification['author']);
-            }
-            if ($notification['show_date']) {
-                $meta_info[] = 'Date: ' . date_i18n(get_option('date_format'), $notification['timestamp']);
-            }
-            if ($notification['show_site']) {
-                $meta_info[] = 'Dept: ' . esc_html($notification['site_name']);
-            }
-            if (!empty($meta_info)) {
-                echo '<div style="font-size: 9px;" class="can-notification-meta">' . implode(' | ', $meta_info) . '</div>';
-            }
-
-            echo '<div class="can-notification-excerpt">' . wp_kses_post(can_truncate_text($notification['excerpt'], 100)) . '</div>';
-            echo '<a href="' . esc_url($notification['permalink']) . '" class="can-read-more">Read More</a>';
-            echo '</div>';
-        }
-        echo '</div>';
-    } else {
-        echo '<p>No approved homepage notifications found.</p>';
-    }
-
-    echo '</div>';
-
-    echo '<style>
-        .can-homepage-notifications.' . $module_class . ' .can-notifications-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-        .can-homepage-notifications.' . $module_class . ' .can-notification-card {
-            background: #fff;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .can-homepage-notifications.' . $module_class . ' .can-notification-thumbnail img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        .can-homepage-notifications.' . $module_class . ' .can-notification-title {
-            margin: 15px 15px 10px;
-            font-size: 18px;
-        }
-        .can-homepage-notifications.' . $module_class . ' .can-notification-meta {
-            margin: 0 15px 10px;
-            font-size: 9px;
-            color: #666;
-        }
-        .can-homepage-notifications.' . $module_class . ' .can-notification-excerpt {
-            margin: 0 15px 15px;
-            font-size: 15px;
-            line-height: 1.5;
-            flex-grow: 1;
-        }
-        .can-homepage-notifications.' . $module_class . ' .can-read-more {
-            display: inline-block;
-            margin: 0 15px 15px;
-            padding: 8px 15px;
-            background: #993333;
-            color: #fff;
-            text-decoration: none;
-            border-radius: 3px;
-            font-size: 14px;
-            align-self: flex-start;
-        }
-        .can-homepage-notifications.' . $module_class . ' .can-read-more:hover {
-            background: #7a2828;
-        }
-        @media (max-width: 768px) {
-            .can-homepage-notifications.' . $module_class . ' .can-notifications-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>';
-
-    return ob_get_clean();
-}
-add_shortcode('display_homepage_notifications', 'can_display_homepage_notifications_shortcode');
 
 function can_sync_notifications_to_main($post_id, $post, $update) {
     if ($post->post_type !== 'notifications' || (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) || $post->post_status !== 'publish') {
